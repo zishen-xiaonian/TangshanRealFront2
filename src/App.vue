@@ -53,6 +53,7 @@ import ReplyAssistantPanel from './components/ReplyAssistantPanel.vue'
 import SensitiveDemandWorkOrderStatsCard from './components/SensitiveDemandWorkOrderStatsCard.vue'
 import OutageUserAnalysisPanel from './components/OutageUserAnalysisPanel.vue'
 import OutageAnalysisMapControls from './components/OutageAnalysisMapControls.vue'
+import OutageUserOverviewPanel from './components/OutageUserOverviewPanel.vue'
 
 const tangshanCenter = [118.180194, 39.630867]
 
@@ -120,6 +121,21 @@ const isOutageAnalysisPage = computed(() => activePageTab.value === 'outageAnaly
 const isOutageUsersPage = computed(() => activePageTab.value === 'outageUsers')
 const isSensitiveDemandPage = computed(() => activePageTab.value === 'sensitiveDemand')
 const outageAnalysisMapFilters = ref(null)
+const currentCalendarTime = ref(new Date())
+const weekdayLabels = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+const topbarDateText = computed(() => {
+  const date = currentCalendarTime.value
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()} ${weekdayLabels[date.getDay()]}`
+})
+const currentWeather = ref('')
+const currentTemperature = ref('')
+const topbarWeatherText = computed(() => {
+  const weather = currentWeather.value || '天气'
+  const temperature = currentTemperature.value ? `${currentTemperature.value}°C` : '--°C'
+  return `${weather} ${temperature}`
+})
+let calendarTimer = null
+let weatherTimer = null
 const intelligentAnalysisSearchInput = ref('')
 const loading = ref(false)
 const dataError = ref('')
@@ -7387,6 +7403,27 @@ const loadAmapScript = (() => {
   }
 })()
 
+const loadTopbarWeather = async () => {
+  try {
+    const AMap = await loadAmapScript()
+    await new Promise((resolve) => AMap.plugin('AMap.Weather', resolve))
+    if (typeof AMap.Weather !== 'function') {
+      return
+    }
+
+    const weatherService = new AMap.Weather()
+    weatherService.getLive('唐山市', (error, data) => {
+      if (error || !data) {
+        return
+      }
+      currentWeather.value = String(data.weather || '').trim()
+      currentTemperature.value = String(data.temperature || '').trim()
+    })
+  } catch (error) {
+    console.warn('[topbar-weather] 实时天气加载失败：', error)
+  }
+}
+
 const clearDistrictOverlays = () => {
   if (!mapInstance || districtOverlays.length === 0) {
     return
@@ -7632,6 +7669,14 @@ watch([activeMapEvent, selectedEventId], () => {
 })
 
 onMounted(async () => {
+  currentCalendarTime.value = new Date()
+  calendarTimer = window.setInterval(() => {
+    currentCalendarTime.value = new Date()
+  }, 60000)
+  void loadTopbarWeather()
+  weatherTimer = window.setInterval(() => {
+    void loadTopbarWeather()
+  }, 30 * 60 * 1000)
   window.addEventListener('message', handleMapFrameMessage)
   await loadCountyList()
   await loadDashboardData()
@@ -7677,6 +7722,14 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  if (calendarTimer) {
+    window.clearInterval(calendarTimer)
+    calendarTimer = null
+  }
+  if (weatherTimer) {
+    window.clearInterval(weatherTimer)
+    weatherTimer = null
+  }
   window.removeEventListener('message', handleMapFrameMessage)
   if (outageDetailLayoutObserver) {
     outageDetailLayoutObserver.disconnect()
@@ -7721,6 +7774,7 @@ onBeforeUnmount(() => {
     </section>
 
     <header class="topbar">
+      <time class="topbar-date" :datetime="currentCalendarTime.toISOString()">{{ topbarDateText }}</time>
       <svg
         class="topbar-wing"
         viewBox="0 0 1000 52"
@@ -7765,6 +7819,28 @@ onBeforeUnmount(() => {
         </g>
       </svg>
       <h1>停电辅助决策</h1>
+      <div class="topbar-actions">
+        <button type="button" class="topbar-icon-button notification-button" aria-label="通知">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" />
+            <path d="M10 21h4" />
+          </svg>
+          <i class="notification-dot" aria-hidden="true"></i>
+        </button>
+        <div class="topbar-weather" title="唐山市实时天气">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="3.5" />
+            <path d="M12 2v2.2M12 19.8V22M2 12h2.2M19.8 12H22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M19.1 4.9l-1.6 1.6M6.5 17.5l-1.6 1.6" />
+          </svg>
+          <span>{{ topbarWeatherText }}</span>
+        </div>
+        <button type="button" class="topbar-icon-button login-avatar-button" aria-label="登录用户">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4.5 21a7.5 7.5 0 0 1 15 0Z" />
+          </svg>
+        </button>
+      </div>
     </header>
 
     <main class="dashboard">
@@ -7774,12 +7850,10 @@ onBeforeUnmount(() => {
         </button>
 
         <div v-show="!isLeftCollapsed" class="panel-inner">
-          <section class="card module-card">
-            <template v-if="isOutageAnalysisPage">
-              <div class="analysis-empty-panel"></div>
-            </template>
+          <OutageUserOverviewPanel v-if="isOutageAnalysisPage" />
 
-            <template v-else-if="isOutageUsersPage">
+          <section v-else class="card module-card">
+            <template v-if="isOutageUsersPage">
               <div class="module-title-row">
                 <h2>停电用户分析</h2>
               </div>

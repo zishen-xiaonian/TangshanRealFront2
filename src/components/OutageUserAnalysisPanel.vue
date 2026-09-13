@@ -1,7 +1,6 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { queryOutageUserAnalysisOverview } from '../api/outage'
-import { createMockOutageUserAnalysis } from '../mock/outageUserAnalysis'
 import StackedBarChart from './StackedBarChart.vue'
 
 const props = defineProps({
@@ -22,15 +21,16 @@ const rangeOptions = [
 ]
 
 const selectedRange = ref('thirtyDays')
-const panelData = ref(createMockOutageUserAnalysis(selectedRange.value, props.endDate))
+const createEmptyPanelData = () => ({
+  userTypes: { labels: [], series: [] },
+  frequentWarnings: { labels: [], series: [] },
+  outageImpact: { labels: [], series: [] },
+})
+
+const panelData = ref(createEmptyPanelData())
 const loading = ref(false)
-const usingMock = ref(true)
 const loadError = ref('')
 let requestId = 0
-
-const useMockData = String(import.meta.env.VITE_OUTAGE_USER_ANALYSIS_USE_MOCK ?? 'true')
-  .trim()
-  .toLowerCase() !== 'false'
 
 const parseDate = (value) => {
   const matched = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/)
@@ -112,15 +112,9 @@ const normalizeResponse = (response, fallback) => {
 
 const loadPanelData = async () => {
   const currentRequestId = ++requestId
-  const fallback = createMockOutageUserAnalysis(selectedRange.value, props.endDate)
+  const emptyData = createEmptyPanelData()
 
-  if (useMockData) {
-    panelData.value = fallback
-    usingMock.value = true
-    loadError.value = ''
-    return
-  }
-
+  panelData.value = emptyData
   loading.value = true
   loadError.value = ''
   try {
@@ -128,15 +122,13 @@ const loadPanelData = async () => {
     if (currentRequestId !== requestId) {
       return
     }
-    panelData.value = normalizeResponse(response, fallback)
-    usingMock.value = false
+    panelData.value = normalizeResponse(response, emptyData)
   } catch (error) {
     if (currentRequestId !== requestId) {
       return
     }
-    console.warn('[outage-analysis] 接口加载失败，已使用示例数据：', error)
-    panelData.value = fallback
-    usingMock.value = true
+    console.warn('[outage-analysis] 接口加载失败：', error)
+    panelData.value = emptyData
     loadError.value = error?.message || '接口暂不可用'
   } finally {
     if (currentRequestId === requestId) {
@@ -144,16 +136,6 @@ const loadPanelData = async () => {
     }
   }
 }
-
-const dataSourceText = computed(() => {
-  if (loading.value) {
-    return '数据加载中'
-  }
-  if (loadError.value) {
-    return '接口未就绪 · 示例数据'
-  }
-  return usingMock.value ? '示例数据' : '实时数据'
-})
 
 watch(
   [selectedRange, () => props.selectedRegion, () => props.endDate],
@@ -186,7 +168,6 @@ watch(
         </button>
       </div>
 
-      <span class="outage-analysis-source" :class="{ live: !usingMock }">{{ dataSourceText }}</span>
     </header>
 
     <article class="outage-analysis-chart-section">
@@ -276,7 +257,7 @@ watch(
 
 .outage-analysis-title h2 {
   white-space: nowrap;
-  color: #087f8e;
+  color: #fff;
   font-size: 19px;
   line-height: 1.2;
   letter-spacing: 0.4px;

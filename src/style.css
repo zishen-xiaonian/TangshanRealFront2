@@ -8254,6 +8254,97 @@
     0 0 9px rgba(167, 255, 240, 0.7);
 }
 
+.topbar-date {
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  z-index: 2;
+  transform: translateY(-50%);
+  color: #55d8cd;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-shadow: 0 0 8px rgba(66, 230, 211, 0.48);
+}
+
+.topbar-actions {
+  position: absolute;
+  top: 50%;
+  right: 18px;
+  z-index: 2;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #55d8cd;
+  pointer-events: auto;
+}
+
+.topbar-icon-button {
+  width: 28px;
+  height: 28px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.notification-button,
+.login-avatar-button {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.notification-button svg,
+.login-avatar-button svg {
+  pointer-events: none;
+}
+
+.topbar-icon-button svg,
+.topbar-weather svg {
+  width: 24px;
+  height: 24px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 4px rgba(61, 224, 207, 0.35));
+}
+
+.notification-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid #092238;
+  border-radius: 50%;
+  background: #ff515d;
+  box-shadow: 0 0 5px rgba(255, 81, 93, 0.7);
+}
+
+.topbar-weather {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(66, 230, 211, 0.35);
+}
+
+.login-avatar-button svg {
+  width: 25px;
+  height: 25px;
+}
+
 /* Sensitive demand 95598 work-order statistics module. */
 .panel-left .sensitive-demand-left-layout {
   position: relative;
@@ -9400,6 +9491,210 @@
   .outage-detail-query-bar .work-order-export-btn,
   .key-user-query-bar .work-order-export-btn,
   .space-detail-export-bar .work-order-export-btn {
+    width: 100%;
+  }
+}
+
+/* Main page tabs: luminous bevelled controls. */
+.page-tab-switch {
+  width: 100%;
+  gap: 18px;
+  padding: 7px 16px;
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(90deg, transparent, rgba(4, 39, 57, 0.9) 8%, rgba(4, 39, 57, 0.9) 92%, transparent);
+  box-shadow: none;
+}
+
+.page-tab-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 230px;
+  height: 46px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 0 20px;
+  border: 2px solid #22ee95;
+  border-radius: 0;
+  clip-path: polygon(9% 0, 91% 0, 100% 23%, 100% 77%, 91% 100%, 9% 100%, 0 77%, 0 23%);
+  color: #d8ffea;
+  background:
+    linear-gradient(180deg, rgba(20, 138, 102, 0.9), rgba(5, 79, 66, 0.96)),
+    repeating-linear-gradient(135deg, rgba(88, 255, 192, 0.12) 0 6px, transparent 6px 12px);
+  box-shadow:
+    inset 0 0 0 3px rgba(50, 255, 167, 0.2),
+    inset 0 0 16px rgba(50, 255, 172, 0.34),
+    0 0 10px rgba(30, 244, 146, 0.54);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-shadow: 0 0 7px rgba(162, 255, 210, 0.68);
+  transition: filter 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+}
+
+.page-tab-btn::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  z-index: -1;
+  border: 1px solid rgba(126, 255, 198, 0.62);
+  clip-path: inherit;
+  pointer-events: none;
+}
+
+.page-tab-btn + .page-tab-btn {
+  border-left: 2px solid #22ee95;
+}
+
+.page-tab-btn:hover {
+  color: #f3fff8;
+  border-color: #65ffc0;
+  filter: brightness(1.12);
+}
+
+.page-tab-btn.active {
+  color: #fff8d6;
+  border: 2px solid #ffc421;
+  background:
+    linear-gradient(180deg, rgba(178, 126, 17, 0.94), rgba(112, 75, 8, 0.98)),
+    repeating-linear-gradient(135deg, rgba(255, 222, 98, 0.14) 0 6px, transparent 6px 12px);
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 209, 50, 0.25),
+    inset 0 0 16px rgba(255, 203, 42, 0.38),
+    0 0 12px rgba(255, 190, 20, 0.62);
+  text-shadow: 0 0 8px rgba(255, 235, 157, 0.78);
+}
+
+.page-tab-btn.active::before {
+  border-color: rgba(255, 226, 111, 0.72);
+}
+
+@media (max-width: 760px) {
+  .page-tab-switch {
+    gap: 7px;
+    padding-inline: 6px;
+  }
+
+  .page-tab-btn {
+    height: 40px;
+    padding-inline: 8px;
+    font-size: 13px;
+  }
+}
+
+.outage-analysis-query-bar {
+  flex: 0 0 100%;
+  width: min(650px, 100%);
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(150px, 190px) 105px;
+  align-items: stretch;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.outage-analysis-line-field {
+  min-width: 0;
+  height: 42px;
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid #20c9b5;
+  border-radius: 5px;
+  background: rgba(248, 255, 254, 0.96);
+  box-shadow: 0 0 8px rgba(27, 209, 190, 0.24);
+}
+
+.outage-analysis-line-field select,
+.outage-analysis-region-field select,
+.outage-analysis-line-field input {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  outline: 0;
+  color: #56666a;
+  background: transparent;
+  font-size: 14px;
+}
+
+.outage-analysis-line-field select {
+  padding: 0 12px;
+  border: 0;
+  border-right: 1px solid rgba(31, 190, 176, 0.58);
+  cursor: pointer;
+}
+
+.outage-analysis-line-field label {
+  min-width: 0;
+  position: relative;
+  display: block;
+}
+
+.outage-analysis-line-field input {
+  padding: 0 42px 0 14px;
+  border: 0;
+}
+
+.outage-analysis-line-field input::placeholder {
+  color: #8b9698;
+}
+
+.outage-analysis-line-field svg {
+  width: 23px;
+  height: 23px;
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  fill: none;
+  stroke: #18b8ab;
+  stroke-width: 2;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.outage-analysis-region-field {
+  height: 42px;
+  overflow: hidden;
+  border: 1px solid #20c9b5;
+  border-radius: 5px;
+  background: rgba(248, 255, 254, 0.96);
+  box-shadow: 0 0 8px rgba(27, 209, 190, 0.24);
+}
+
+.outage-analysis-region-field select {
+  padding: 0 14px;
+  border: 0;
+  cursor: pointer;
+}
+
+.outage-analysis-query-button {
+  height: 42px;
+  padding: 0 18px;
+  border: 1px solid #20cdbb;
+  border-radius: 4px;
+  color: #fff;
+  background: linear-gradient(180deg, #35d1c0, #18b6aa);
+  box-shadow: 0 0 9px rgba(30, 211, 194, 0.3);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.outage-analysis-query-button:hover {
+  filter: brightness(1.08);
+}
+
+@media (max-width: 760px) {
+  .outage-analysis-query-bar {
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+
+  .outage-analysis-line-field {
+    grid-column: 1 / -1;
+  }
+
+  .outage-analysis-query-button {
     width: 100%;
   }
 }
