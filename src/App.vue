@@ -51,6 +51,7 @@ import EmotionEvolutionAnalysisPanel from './components/EmotionEvolutionAnalysis
 import IntelligentWarningPanel from './components/IntelligentWarningPanel.vue'
 import ReplyAssistantPanel from './components/ReplyAssistantPanel.vue'
 import SensitiveDemandWorkOrderStatsCard from './components/SensitiveDemandWorkOrderStatsCard.vue'
+import OutageUserAnalysisPanel from './components/OutageUserAnalysisPanel.vue'
 
 const tangshanCenter = [118.180194, 39.630867]
 
@@ -8171,7 +8172,11 @@ onBeforeUnmount(() => {
         </button>
 
         <div v-show="!isRightCollapsed" class="panel-inner">
-          <section v-if="activePageTab === 'outageAnalysis'" class="card module-card analysis-empty-panel"></section>
+          <OutageUserAnalysisPanel
+            v-if="activePageTab === 'outageAnalysis'"
+            :selected-region="selectedRegion"
+            :end-date="queryEndTime"
+          />
 
           <section v-else-if="activePageTab === 'outageUsers'" class="card module-card">
             <CountyWarningLightsCard

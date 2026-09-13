@@ -47,6 +47,8 @@ const OUTAGE_USER_TAGS_CHART_API =
   import.meta.env.VITE_OUTAGE_USER_TAGS_CHART_API || '/api/v1/outage-users/user-tags/chart'
 const OUTAGE_USER_TAGS_API =
   import.meta.env.VITE_OUTAGE_USER_TAGS_API || '/api/v1/outage-users/user-tags'
+const OUTAGE_USER_ANALYSIS_API =
+  import.meta.env.VITE_OUTAGE_USER_ANALYSIS_API || '/api/v1/outage-users/analysis-overview'
 const ONE_MAP_METER_BOX_ID_API =
   import.meta.env.VITE_ONE_MAP_METER_BOX_ID_API || '/api/v1/one-map/meter-box-id'
 
@@ -145,6 +147,11 @@ export const queryOutageUserTagsChart = (params) =>
 
 export const queryOutageUserTags = (params) =>
   postJson(OUTAGE_USER_TAGS_API, params, {
+    timeout: DEFAULT_STATS_TIMEOUT,
+  })
+
+export const queryOutageUserAnalysisOverview = (params) =>
+  postJson(OUTAGE_USER_ANALYSIS_API, params, {
     timeout: DEFAULT_STATS_TIMEOUT,
   })
 
