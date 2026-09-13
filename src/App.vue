@@ -7256,7 +7256,9 @@ const toggleRightPanel = () => {
 
 const switchPageTab = (tab) => {
   const shouldResetOutagePages = activePageTab.value === 'sensitiveDemand' && tab !== 'sensitiveDemand'
-  activePageTab.value = tab === 'sensitiveDemand' ? 'sensitiveDemand' : 'outageUsers'
+  activePageTab.value = ['outageAnalysis', 'outageUsers', 'sensitiveDemand'].includes(tab)
+    ? tab
+    : 'outageUsers'
   if (shouldResetOutagePages) {
     closeCountyWarningPopup()
     handleCloseSpaceDistributionDetailPage()
@@ -7277,7 +7279,7 @@ const switchPageTab = (tab) => {
   }
   if (activePageTab.value === 'sensitiveDemand') {
     void applyTimeFilter()
-  } else {
+  } else if (activePageTab.value === 'outageUsers') {
     void loadDashboardData(null, { includeDetailPages: false })
   }
 }
@@ -7695,7 +7697,7 @@ onBeforeUnmount(() => {
     </section>
 
     <header class="topbar">
-      <h1>用户侧停电影响智能评估与诉求分析系统</h1>
+      <h1>停电辅助决策</h1>
     </header>
 
     <main class="dashboard">
@@ -7706,7 +7708,11 @@ onBeforeUnmount(() => {
 
         <div v-show="!isLeftCollapsed" class="panel-inner">
           <section class="card module-card">
-            <template v-if="activePageTab === 'outageUsers'">
+            <template v-if="activePageTab === 'outageAnalysis'">
+              <div class="analysis-empty-panel"></div>
+            </template>
+
+            <template v-else-if="activePageTab === 'outageUsers'">
               <div class="module-title-row">
                 <h2>停电用户分析</h2>
               </div>
@@ -8165,7 +8171,9 @@ onBeforeUnmount(() => {
         </button>
 
         <div v-show="!isRightCollapsed" class="panel-inner">
-          <section v-if="activePageTab === 'outageUsers'" class="card module-card">
+          <section v-if="activePageTab === 'outageAnalysis'" class="card module-card analysis-empty-panel"></section>
+
+          <section v-else-if="activePageTab === 'outageUsers'" class="card module-card">
             <CountyWarningLightsCard
               :county-warning-lights="countyWarningLights"
               :loading="loading"
@@ -8271,6 +8279,14 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="page-tab-btn"
+            :class="{ active: activePageTab === 'outageAnalysis' }"
+            @click="switchPageTab('outageAnalysis')"
+          >
+            停电用户分析
+          </button>
+          <button
+            type="button"
+            class="page-tab-btn"
             :class="{ active: activePageTab === 'outageUsers' }"
             @click="switchPageTab('outageUsers')"
           >
@@ -8292,7 +8308,7 @@ onBeforeUnmount(() => {
           </select>
         </label>
 
-        <div class="time-filter-bar global-time-filter">
+        <div v-if="activePageTab !== 'outageAnalysis'" class="time-filter-bar global-time-filter">
           <label class="time-filter-field">
             <input v-model="queryEndTime" type="date" class="time-filter-input" />
           </label>
