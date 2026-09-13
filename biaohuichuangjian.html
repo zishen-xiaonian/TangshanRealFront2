@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>图形标绘</title>
+  <link rel="stylesheet" href="/sgepriamapsdk/css/narimap.umd.css" />
+  <link rel="stylesheet" href="/sgepriamapsdk/css/nrgis-common.min.css" />
+  <link rel="stylesheet" href="../examples/libs/bootstrap-3.3.7-dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="../examples/developers/css/panel.css" />
+</head>
+
+<body>
+  <!-- 地图容器 -->
+  <div id="map" style="width: 100%; height: 100%"></div>
+  <!-- 表单面板 -->
+  <div class="panel-wrap panel-form-wrap">
+    <div class="panel-title">
+      <span>操作</span>
+    </div>
+    <div class="panel-container">
+      <form class="form-inline">
+        <div class="form-group">
+          <label class="form-label">提示：线、面右键结束绘制</label>
+        </div>
+        <div class="form-btns form-btns-justify">
+          <button class="btn btn-dark btn-sm" type="button" onclick="startDrawPointAction()">
+            绘制点
+          </button>
+          <button class="btn btn-dark btn-sm" type="button" onclick="startDrawPolylineAction()">
+            绘制线
+          </button>
+          <button class="btn btn-dark btn-sm" type="button" onclick="startDrawPolygonAction()">
+            绘制面
+          </button>
+          <button class="btn btn-dark btn-sm" type="button" onclick="startDrawRect()">
+            绘制矩形
+          </button>
+          <button class="btn btn-dark btn-sm" type="button" onclick="startDrawCircle()">
+            绘制圆
+          </button>
+          <button class="btn btn-dark btn-sm" type="button" onclick="startClearDraw()">
+            清除绘制
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="../examples/libs/jquery/jquery.min.js"></script>
+  <script src="../examples/libs/bootstrap-3.3.7-dist/js/bootstrap.min.js"></script>
+  <script src="/sgepriamapsdk/libs/narimap.umd.min.js"></script>
+  <script src="../examples/configs/loadDemoConfig.js"></script>
+  <script>
+    // 已申请publicKey的应用此处填写的为publicKey                              
+    // 新增申请的应用为clientId，详情见SDK的“准备”教程
+    narimap.publicKey = '你申请的key' ;
+
+    narimap.Require(["Marker"], () => {
+      if (narimap.Config.examples.notlogin) {
+        initMap()
+      } else {
+        narimap.SGAuth.login()
+          .then((res) => {
+            if (res.success) {
+              console.log("登录成功")
+              initMap()
+            } else {
+              console.log("登录失败", res)
+            }
+          })
+          .catch((err) => {
+            console.error("错误", err)
+          })
+      }
+    })
+
+    function initMap() {
+      // 初始化地图
+      window.map = new narimap.Map({
+        container: "map", // 地图绑定的DOM元素ID
+        style: narimap.Config.styles.sjBase, // 地图样式
+        zoom: 5.6, // 默认缩放层级
+        center: narimap.Config.examples.center, // 地图中心点 [119.45259089995932, 32.93433342834534],
+        localIdeographFontFamily: "Microsoft YoHei", // 地图默认字体
+        fullExtent: narimap.Config.examples.fullExtent,
+      })
+      map.once("style.load", () => {
+        // 初始化标绘类实例
+        window.draw = new narimap.Drawer(map)
+      })
+    }
+
+    // 绘制点
+    function startDrawPointAction() {
+      draw.startDrawPoint("", drawEndHandler, false)
+    }
+
+    // 绘制线
+    function startDrawPolylineAction() {
+      draw.startDrawPolyline("", drawClickHandler, drawEndHandler, drawingHandler, false)
+    }
+
+    // 绘制面
+    function startDrawPolygonAction() {
+      draw.startDrawPolygon("", drawClickHandler, drawEndHandler, drawingHandler, false)
+    }
+
+    // 绘制矩形
+    function startDrawRect() {
+      draw.dragDrawRect("", drawClickHandler, drawEndHandler, drawingHandler, false)
+    }
+
+    // 绘制圆
+    function startDrawCircle() {
+      draw.dragDrawCircle("", drawClickHandler, drawEndHandler, drawingHandler, false)
+    }
+
+    // 清除绘制
+    function startClearDraw() {
+      draw.clearMapDraw()
+    }
+
+    /**
+     * @param layerID 图层ID
+     * @param clickPoint 鼠标点击过的坐标
+     * @param clickEvent 鼠标点击事件对象
+     */
+
+    // 绘制点击事件回调
+    function drawClickHandler(layerID, clickPoint, clickEvent) {
+      console.log(layerID, clickPoint, clickEvent)
+    }
+
+    // 绘制结束事件回调
+    function drawEndHandler(layerID, geometry, clickEvent) {
+      console.log(layerID, geometry, clickEvent)
+    }
+
+    // 绘制中每一帧事件
+    function drawingHandler(layerID, clickPoint, clickEvent) {
+      console.log(layerID, clickPoint, clickEvent)
+    }
+  </script>
+</body>
+
+</html>
+
+</html>
