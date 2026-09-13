@@ -52,6 +52,7 @@ import IntelligentWarningPanel from './components/IntelligentWarningPanel.vue'
 import ReplyAssistantPanel from './components/ReplyAssistantPanel.vue'
 import SensitiveDemandWorkOrderStatsCard from './components/SensitiveDemandWorkOrderStatsCard.vue'
 import OutageUserAnalysisPanel from './components/OutageUserAnalysisPanel.vue'
+import OutageAnalysisMapControls from './components/OutageAnalysisMapControls.vue'
 
 const tangshanCenter = [118.180194, 39.630867]
 
@@ -83,6 +84,7 @@ const mapOutageFeederLocateMessageType = 'MAP_OUTAGE_FEEDER_LOCATE'
 const mapSpaceDeviceLocateMessageType = 'MAP_SPACE_DEVICE_LOCATE'
 const mapOutageChainLocateMessageType = 'MAP_OUTAGE_CHAIN_LOCATE'
 const amapTokenCapturedMessageType = 'AMAP_TOKEN_CAPTURED'
+const mapOutageAnalysisFiltersMessageType = 'MAP_OUTAGE_ANALYSIS_FILTERS'
 const mapOutageChainProvinceId = '1100F3DE20806FADE050007F01006CBE'
 const outageChainFeederDevType = 'dkx'
 const outageChainSubstationDevType = 'zf01'
@@ -113,7 +115,11 @@ let infoWindow = null
 
 const isLeftCollapsed = ref(false)
 const isRightCollapsed = ref(false)
-const activePageTab = ref('outageUsers')
+const activePageTab = ref('outageAnalysis')
+const isOutageAnalysisPage = computed(() => activePageTab.value === 'outageAnalysis')
+const isOutageUsersPage = computed(() => activePageTab.value === 'outageUsers')
+const isSensitiveDemandPage = computed(() => activePageTab.value === 'sensitiveDemand')
+const outageAnalysisMapFilters = ref(null)
 const intelligentAnalysisSearchInput = ref('')
 const loading = ref(false)
 const dataError = ref('')
@@ -527,6 +533,21 @@ const postMessageToMapFrame = (message) => {
   targetWindow.postMessage(message, window.location.origin)
 }
 
+const syncOutageAnalysisMapFiltersToMapFrame = () => {
+  if (!isOutageAnalysisPage.value || !outageAnalysisMapFilters.value) {
+    return
+  }
+  postMessageToMapFrame({
+    type: mapOutageAnalysisFiltersMessageType,
+    payload: outageAnalysisMapFilters.value,
+  })
+}
+
+const handleOutageAnalysisMapControlsChange = (filters) => {
+  outageAnalysisMapFilters.value = filters
+  syncOutageAnalysisMapFiltersToMapFrame()
+}
+
 const buildKeyUserCountyMarkerPayload = () =>
   keyUserCountyStats.value.map((countyStat) => ({
     countyName: countyStat.countyName,
@@ -569,6 +590,7 @@ const syncCountyFocusToMapFrame = () => {
 const handleMapFrameLoad = () => {
   syncKeyUserCountyMarkersToMapFrame()
   syncCountyFocusToMapFrame()
+  syncOutageAnalysisMapFiltersToMapFrame()
 }
 
 const handleMapFrameMessage = (event) => {
@@ -579,6 +601,7 @@ const handleMapFrameMessage = (event) => {
   if (event?.data?.type === keyUserMapReadyMessageType) {
     syncKeyUserCountyMarkersToMapFrame()
     syncCountyFocusToMapFrame()
+    syncOutageAnalysisMapFiltersToMapFrame()
     return
   }
 
@@ -7752,11 +7775,11 @@ onBeforeUnmount(() => {
 
         <div v-show="!isLeftCollapsed" class="panel-inner">
           <section class="card module-card">
-            <template v-if="activePageTab === 'outageAnalysis'">
+            <template v-if="isOutageAnalysisPage">
               <div class="analysis-empty-panel"></div>
             </template>
 
-            <template v-else-if="activePageTab === 'outageUsers'">
+            <template v-else-if="isOutageUsersPage">
               <div class="module-title-row">
                 <h2>停电用户分析</h2>
               </div>
@@ -7862,7 +7885,7 @@ onBeforeUnmount(() => {
               />
             </template>
 
-            <template v-else-if="activePageTab === 'sensitiveDemand'">
+            <template v-else-if="isSensitiveDemandPage">
               <section v-if="showSensitiveDemandAutoDetail" class="sensitive-demand-auto-detail-page">
                 <header class="sensitive-demand-auto-detail-head">
                   <h2>自动化识别</h2>
@@ -8216,12 +8239,12 @@ onBeforeUnmount(() => {
 
         <div v-show="!isRightCollapsed" class="panel-inner">
           <OutageUserAnalysisPanel
-            v-if="activePageTab === 'outageAnalysis'"
+            v-if="isOutageAnalysisPage"
             :selected-region="selectedRegion"
             :end-date="queryEndTime"
           />
 
-          <section v-else-if="activePageTab === 'outageUsers'" class="card module-card">
+          <section v-else-if="isOutageUsersPage" class="card module-card">
             <CountyWarningLightsCard
               :county-warning-lights="countyWarningLights"
               :loading="loading"
@@ -8322,41 +8345,49 @@ onBeforeUnmount(() => {
         </div>
       </aside>
 
+      <OutageAnalysisMapControls
+        v-if="isOutageAnalysisPage"
+        @change="handleOutageAnalysisMapControlsChange"
+      />
+
       <section class="global-filter-bar">
         <div class="page-tab-switch">
           <button
             type="button"
             class="page-tab-btn"
-            :class="{ active: activePageTab === 'outageAnalysis' }"
-            @click="switchPageTab('outageAnalysis')"
+            :class="{ active: isOutageAnalysisPage }"
+            :aria-pressed="isOutageAnalysisPage"
+            @click.stop="switchPageTab('outageAnalysis')"
           >
             停电用户分析
           </button>
           <button
             type="button"
             class="page-tab-btn"
-            :class="{ active: activePageTab === 'outageUsers' }"
-            @click="switchPageTab('outageUsers')"
+            :class="{ active: isOutageUsersPage }"
+            :aria-pressed="isOutageUsersPage"
+            @click.stop="switchPageTab('outageUsers')"
           >
             停电用户
           </button>
           <button
             type="button"
             class="page-tab-btn"
-            :class="{ active: activePageTab === 'sensitiveDemand' }"
-            @click="switchPageTab('sensitiveDemand')"
+            :class="{ active: isSensitiveDemandPage }"
+            :aria-pressed="isSensitiveDemandPage"
+            @click.stop="switchPageTab('sensitiveDemand')"
           >
             敏感诉求
           </button>
         </div>
 
-        <label v-if="activePageTab === 'outageUsers'" class="global-county-field">
+        <label v-if="isOutageUsersPage" class="global-county-field">
           <select v-model="selectedRegion" class="region-select global-county-select">
             <option v-for="item in regionOptions" :key="`global-county-${item}`" :value="item">{{ item }}</option>
           </select>
         </label>
 
-        <div v-if="activePageTab !== 'outageAnalysis'" class="time-filter-bar global-time-filter">
+        <div v-if="!isOutageAnalysisPage" class="time-filter-bar global-time-filter">
           <label class="time-filter-field">
             <input v-model="queryEndTime" type="date" class="time-filter-input" />
           </label>
