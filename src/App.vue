@@ -121,6 +121,8 @@ const isOutageAnalysisPage = computed(() => activePageTab.value === 'outageAnaly
 const isOutageUsersPage = computed(() => activePageTab.value === 'outageUsers')
 const isSensitiveDemandPage = computed(() => activePageTab.value === 'sensitiveDemand')
 const outageAnalysisMapFilters = ref(null)
+const outageAnalysisQueryType = ref('line')
+const outageAnalysisQueryKeyword = ref('')
 const currentCalendarTime = ref(new Date())
 const weekdayLabels = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
 const topbarDateText = computed(() => {
@@ -553,15 +555,24 @@ const syncOutageAnalysisMapFiltersToMapFrame = () => {
   if (!isOutageAnalysisPage.value || !outageAnalysisMapFilters.value) {
     return
   }
+  const filters = outageAnalysisMapFilters.value
   postMessageToMapFrame({
     type: mapOutageAnalysisFiltersMessageType,
-    payload: outageAnalysisMapFilters.value,
+    payload: {
+      eventTypes: [...filters.eventTypes],
+      warningLevels: [...filters.warningLevels],
+      toolMode: filters.toolMode,
+    },
   })
 }
 
 const handleOutageAnalysisMapControlsChange = (filters) => {
   outageAnalysisMapFilters.value = filters
   syncOutageAnalysisMapFiltersToMapFrame()
+}
+
+const applyOutageAnalysisQuery = () => {
+  syncCountyFocusToMapFrame()
 }
 
 const buildKeyUserCountyMarkerPayload = () =>
@@ -8454,6 +8465,35 @@ onBeforeUnmount(() => {
             敏感诉求
           </button>
         </div>
+
+        <form
+          v-if="isOutageAnalysisPage"
+          class="outage-analysis-query-bar"
+          @submit.prevent="applyOutageAnalysisQuery"
+        >
+          <div class="outage-analysis-line-field">
+            <select v-model="outageAnalysisQueryType" aria-label="查询类型">
+              <option value="line">线路</option>
+            </select>
+            <label>
+              <input v-model.trim="outageAnalysisQueryKeyword" type="search" placeholder="请输入" aria-label="线路查询内容" />
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="10.5" cy="10.5" r="7.5" />
+                <path d="m16 16 5 5" />
+              </svg>
+            </label>
+          </div>
+
+          <label class="outage-analysis-region-field">
+            <select v-model="selectedRegion" aria-label="区县">
+              <option v-for="item in regionOptions" :key="`outage-analysis-region-${item}`" :value="item">
+                {{ item }}
+              </option>
+            </select>
+          </label>
+
+          <button type="submit" class="outage-analysis-query-button">查询</button>
+        </form>
 
         <label v-if="isOutageUsersPage" class="global-county-field">
           <select v-model="selectedRegion" class="region-select global-county-select">
