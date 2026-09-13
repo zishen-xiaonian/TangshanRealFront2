@@ -8181,7 +8181,77 @@
 }
 
 .screen > .dashboard .global-filter-bar {
-  top: 0;
+  top: 20px;
+}
+
+/* System title: thin outer wing tips sweep down into a broad, flat centre. */
+.screen > .topbar {
+  position: relative;
+  height: 34px;
+  min-height: 34px;
+  flex: 0 0 34px;
+  padding: 0 12px;
+  overflow: visible;
+  isolation: isolate;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.screen > .topbar > .topbar-wing {
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  width: 80%;
+  height: 52px;
+  transform: translateX(-50%);
+  overflow: visible;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.topbar-wing-fill {
+  fill: url('#topbar-wing-fill');
+  stroke: rgba(67, 224, 210, 0.58);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.topbar-wing-line,
+.topbar-wing-inner-line {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.topbar-wing-line {
+  stroke: rgba(54, 247, 218, 0.88);
+  stroke-width: 1.35;
+  filter: drop-shadow(0 0 3px rgba(40, 245, 215, 0.7));
+}
+
+.topbar-wing-inner-line {
+  stroke: rgba(68, 218, 205, 0.42);
+  stroke-width: 0.8;
+}
+
+.topbar-wing-lights {
+  fill: #6effe5;
+}
+
+.screen > .topbar h1 {
+  position: relative;
+  z-index: 1;
+  min-width: min(26%, 390px);
+  padding: 0 22px;
+  color: #f4fffb;
+  font-size: clamp(22px, 1.75vw, 29px);
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-shadow:
+    0 2px 0 rgba(4, 68, 79, 0.92),
+    0 0 9px rgba(167, 255, 240, 0.7);
 }
 
 /* Sensitive demand 95598 work-order statistics module. */

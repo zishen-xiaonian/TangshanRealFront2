@@ -7698,6 +7698,49 @@ onBeforeUnmount(() => {
     </section>
 
     <header class="topbar">
+      <svg
+        class="topbar-wing"
+        viewBox="0 0 1000 52"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id="topbar-wing-fill" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#0a3748" stop-opacity="0.12" />
+            <stop offset="0.32" stop-color="#087c80" stop-opacity="0.74" />
+            <stop offset="0.5" stop-color="#0b9690" stop-opacity="0.9" />
+            <stop offset="0.68" stop-color="#087c80" stop-opacity="0.74" />
+            <stop offset="1" stop-color="#0a3748" stop-opacity="0.12" />
+          </linearGradient>
+          <filter id="topbar-wing-glow" x="-10%" y="-20%" width="120%" height="150%">
+            <feGaussianBlur stdDeviation="1.6" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <path
+          class="topbar-wing-fill"
+          d="M0 1 H1000 V4 C820 5 735 8 680 15 C640 20 655 43 600 50 H400 C345 43 360 20 320 15 C265 8 180 5 0 4 Z"
+        />
+        <path
+          class="topbar-wing-line"
+          d="M0 4 C180 5 265 8 320 15 C360 20 345 43 400 50 H600 C655 43 640 20 680 15 C735 8 820 5 1000 4"
+        />
+        <path
+          class="topbar-wing-inner-line"
+          d="M20 7 C190 8 272 10 325 17 C365 22 354 40 405 47 H595 C646 40 635 22 675 17 C728 10 810 8 980 7"
+        />
+        <g class="topbar-wing-lights" filter="url(#topbar-wing-glow)">
+          <circle cx="326" cy="17" r="1.8" />
+          <circle cx="339" cy="21" r="1.4" />
+          <circle cx="350" cy="26" r="1.2" />
+          <circle cx="650" cy="26" r="1.2" />
+          <circle cx="661" cy="21" r="1.4" />
+          <circle cx="674" cy="17" r="1.8" />
+        </g>
+      </svg>
       <h1>停电辅助决策</h1>
     </header>
 
