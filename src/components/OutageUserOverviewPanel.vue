@@ -1,10 +1,22 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import {
+  queryOutageAnalysisImpactCounts,
+  queryOutageAnalysisWarningCounts,
+} from '../api/outage'
 
 const props = defineProps({
   data: {
     type: Object,
     default: null,
+  },
+  cityId: {
+    type: String,
+    default: '',
+  },
+  countyId: {
+    type: String,
+    default: '',
   },
 })
 
@@ -17,6 +29,44 @@ const ranges = [
 ]
 
 const activeRange = ref('today')
+const liveImpact = ref(null)
+const impactLoading = ref(false)
+const impactLoadError = ref('')
+const liveWarnings = ref(null)
+const warningLoading = ref(false)
+const warningLoadError = ref('')
+const warningRuleDialogOpen = ref(false)
+const historyDialogOpen = ref(false)
+const historyBeginInput = ref('')
+const historyEndInput = ref('')
+const historyMinTime = ref('')
+const historyMaxTime = ref('')
+const historyRange = ref(null)
+const historyValidationError = ref('')
+const rangeEndTime = ref('')
+let impactRequestId = 0
+let warningRequestId = 0
+
+const padDatePart = (value) => String(value).padStart(2, '0')
+
+const formatLocalDateTime = (date) => [
+  date.getFullYear(),
+  padDatePart(date.getMonth() + 1),
+  padDatePart(date.getDate()),
+].join('-') + `T${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}:${padDatePart(date.getSeconds())}`
+
+const subtractOneMonth = (date) => {
+  const result = new Date(date)
+  const originalDay = result.getDate()
+  result.setDate(1)
+  result.setMonth(result.getMonth() - 1)
+  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate()
+  result.setDate(Math.min(originalDay, lastDay))
+  return result
+}
+
+const toApiDateTime = (value) => String(value || '').replace('T', ' ')
+rangeEndTime.value = toApiDateTime(formatLocalDateTime(new Date()))
 
 const overviewItems = computed(() => [
   { key: 'urban', label: '城网用户', icon: 'urban', value: props.data?.overview?.urban },
@@ -42,20 +92,30 @@ const usageTypeLegend = computed(() => [
   { key: 'irrigation', label: '贫困县农业排灌用电', color: '#8baff3', value: props.data?.userTypes?.usage?.irrigation },
 ])
 
-const warningLevels = computed(() => [
-  { key: 'extreme', label: '极度\n风险', color: '#96242f', value: props.data?.warnings?.extreme },
-  { key: 'exceptional', label: '特大\n风险', color: '#c62532', value: props.data?.warnings?.exceptional },
-  { key: 'severe', label: '重大\n风险', color: '#df3d40', value: props.data?.warnings?.severe },
-  { key: 'major', label: '较大\n风险', color: '#f0712e', value: props.data?.warnings?.major },
-  { key: 'medium', label: '中度\n风险', color: '#eea72b', value: props.data?.warnings?.medium },
-  { key: 'mild', label: '轻度\n风险', color: '#3dbd82', value: props.data?.warnings?.mild },
-])
+const warningRules = [
+  { key: 'extreme', label: '极度风险', compactLabel: '极度\n风险', threshold: '≥ 7次/日', color: '#96242f' },
+  { key: 'exceptional', label: '特大风险', compactLabel: '特大\n风险', threshold: '6次/日', color: '#c62532' },
+  { key: 'severe', label: '重大风险', compactLabel: '重大\n风险', threshold: '5次/日', color: '#df3d40' },
+  { key: 'major', label: '较大风险', compactLabel: '较大\n风险', threshold: '4次/日', color: '#f0712e' },
+  { key: 'medium', label: '中度风险', compactLabel: '中度\n风险', threshold: '3次/日', color: '#eea72b' },
+  { key: 'mild', label: '轻度风险', compactLabel: '轻度\n风险', threshold: '2次/日', color: '#3dbd82' },
+]
+
+const warningSource = computed(() => liveWarnings.value || props.data?.warnings || {})
+
+const warningLevels = computed(() => warningRules.map((rule) => ({
+  ...rule,
+  label: rule.compactLabel,
+  value: warningSource.value[rule.key],
+})))
+
+const impactSource = computed(() => liveImpact.value || props.data?.impact || {})
 
 const impactLevels = computed(() => [
-  { key: 'veryHigh', label: '影响户数极大', range: '>1000', color: '#e23b33', value: props.data?.impact?.veryHigh },
-  { key: 'high', label: '影响户数较大', range: '500~1000', color: '#ffbd24', value: props.data?.impact?.high },
-  { key: 'medium', label: '影响户数中度', range: '100~500', color: '#1cb1d0', value: props.data?.impact?.medium },
-  { key: 'low', label: '影响户数轻度', range: '<100', color: '#48c890', value: props.data?.impact?.low },
+  { key: 'veryHigh', label: '影响户数极大', range: '>1000', color: '#e23b33', value: impactSource.value.veryHigh },
+  { key: 'high', label: '影响户数较大', range: '>500~≤1000', color: '#ffbd24', value: impactSource.value.high },
+  { key: 'medium', label: '影响户数中度', range: '>100~≤500', color: '#1cb1d0', value: impactSource.value.medium },
+  { key: 'low', label: '影响户数轻度', range: '≤100', color: '#48c890', value: impactSource.value.low },
 ])
 
 const hasValue = (value) => Number.isFinite(Number(value)) && Number(value) >= 0
@@ -97,9 +157,181 @@ const impactBarWidth = (value) => {
 }
 
 const selectRange = (range) => {
+  if (range === 'history') {
+    const now = new Date()
+    const lowerBound = subtractOneMonth(now)
+    lowerBound.setHours(0, 0, 0, 0)
+    historyMinTime.value = formatLocalDateTime(lowerBound)
+    historyMaxTime.value = formatLocalDateTime(now)
+    historyBeginInput.value = historyRange.value?.beginInput || historyMinTime.value
+    historyEndInput.value = historyRange.value?.endInput || historyMaxTime.value
+    historyValidationError.value = ''
+    historyDialogOpen.value = true
+    return
+  }
+
+  rangeEndTime.value = toApiDateTime(formatLocalDateTime(new Date()))
   activeRange.value = range
   emit('range-change', range)
 }
+
+const closeHistoryDialog = () => {
+  historyDialogOpen.value = false
+  historyValidationError.value = ''
+}
+
+const resetHistoryRange = () => {
+  historyBeginInput.value = historyMinTime.value
+  historyEndInput.value = historyMaxTime.value
+  historyValidationError.value = ''
+}
+
+const confirmHistoryRange = () => {
+  if (!historyBeginInput.value || !historyEndInput.value) {
+    historyValidationError.value = '请选择完整的开始时间和结束时间'
+    return
+  }
+
+  const beginTime = new Date(historyBeginInput.value)
+  const endTime = new Date(historyEndInput.value)
+  const lowerBound = new Date(historyMinTime.value)
+  const upperBound = new Date(historyMaxTime.value)
+  if ([beginTime, endTime, lowerBound, upperBound].some((date) => Number.isNaN(date.getTime()))) {
+    historyValidationError.value = '时间格式不正确，请重新选择'
+    return
+  }
+  if (beginTime < lowerBound || endTime > upperBound) {
+    historyValidationError.value = '仅可查询距离本日最近一个月内的数据'
+    return
+  }
+  if (beginTime > endTime) {
+    historyValidationError.value = '开始时间不能晚于结束时间'
+    return
+  }
+
+  historyRange.value = {
+    beginInput: historyBeginInput.value,
+    endInput: historyEndInput.value,
+    beginTime: toApiDateTime(historyBeginInput.value),
+    endTime: toApiDateTime(historyEndInput.value),
+  }
+  activeRange.value = 'history'
+  emit('range-change', 'history')
+  closeHistoryDialog()
+}
+
+const buildAnalysisPayload = () => {
+  const cityId = String(props.cityId || '').trim()
+  const countyId = String(props.countyId || '').trim()
+  if (!cityId && !countyId) {
+    return null
+  }
+
+  const payload = { rangeType: activeRange.value }
+  if (activeRange.value === 'history') {
+    if (!historyRange.value) {
+      return null
+    }
+    payload.beginTime = historyRange.value.beginTime
+    payload.endTime = historyRange.value.endTime
+  } else {
+    payload.endTime = rangeEndTime.value
+  }
+  if (countyId) {
+    payload.countyId = countyId
+  } else {
+    payload.cityId = cityId
+  }
+  return payload
+}
+
+const loadImpactCounts = async () => {
+  const payload = buildAnalysisPayload()
+  if (!payload) {
+    liveImpact.value = null
+    impactLoadError.value = ''
+    return
+  }
+
+  const currentRequestId = ++impactRequestId
+  impactLoading.value = true
+  impactLoadError.value = ''
+  liveImpact.value = null
+
+  try {
+    const response = await queryOutageAnalysisImpactCounts(payload)
+    if (currentRequestId !== impactRequestId) {
+      return
+    }
+    const impact = response?.data?.impact
+    liveImpact.value = impact && typeof impact === 'object' ? impact : null
+    if (!liveImpact.value) {
+      impactLoadError.value = '返回数据格式不正确'
+    }
+  } catch (error) {
+    if (currentRequestId !== impactRequestId) {
+      return
+    }
+    impactLoadError.value = error?.message || '数据加载失败'
+    liveImpact.value = null
+  } finally {
+    if (currentRequestId === impactRequestId) {
+      impactLoading.value = false
+    }
+  }
+}
+
+const loadWarningCounts = async () => {
+  const payload = buildAnalysisPayload()
+  if (!payload) {
+    liveWarnings.value = null
+    warningLoadError.value = ''
+    return
+  }
+
+  const currentRequestId = ++warningRequestId
+  warningLoading.value = true
+  warningLoadError.value = ''
+  liveWarnings.value = null
+
+  try {
+    const response = await queryOutageAnalysisWarningCounts(payload)
+    if (currentRequestId !== warningRequestId) {
+      return
+    }
+    const warnings = response?.data?.warnings
+    liveWarnings.value = warnings && typeof warnings === 'object' ? warnings : null
+    if (!liveWarnings.value) {
+      warningLoadError.value = '返回数据格式不正确'
+    }
+  } catch (error) {
+    if (currentRequestId !== warningRequestId) {
+      return
+    }
+    warningLoadError.value = error?.message || '数据加载失败'
+    liveWarnings.value = null
+  } finally {
+    if (currentRequestId === warningRequestId) {
+      warningLoading.value = false
+    }
+  }
+}
+
+watch(
+  [
+    activeRange,
+    () => props.cityId,
+    () => props.countyId,
+    () => historyRange.value?.beginTime,
+    () => historyRange.value?.endTime,
+    rangeEndTime,
+  ],
+  () => {
+    void loadImpactCounts()
+    void loadWarningCounts()
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -193,10 +425,20 @@ const selectRange = (range) => {
         </div>
       </section>
 
-      <section class="overview-section warning-section">
+      <section class="overview-section warning-section" :aria-busy="warningLoading">
         <div class="section-heading-row">
           <h3>频繁停电用户预警</h3>
-          <button type="button" class="warning-rule-button">预警规则</button>
+          <div class="warning-heading-actions">
+            <span v-if="warningLoading">加载中...</span>
+            <span v-else-if="warningLoadError" class="warning-load-error">加载失败</span>
+            <button
+              type="button"
+              class="warning-rule-button"
+              @click="warningRuleDialogOpen = true"
+            >
+              预警规则
+            </button>
+          </div>
         </div>
         <div class="warning-list">
           <article
@@ -212,7 +454,7 @@ const selectRange = (range) => {
         </div>
       </section>
 
-      <section class="overview-section impact-section">
+      <section class="overview-section impact-section" :aria-busy="impactLoading">
         <h3>停电影响户数分析</h3>
         <div class="impact-legend">
           <span v-for="item in impactLevels" :key="item.key">
@@ -228,10 +470,118 @@ const selectRange = (range) => {
             <strong>{{ displayValue(item.value) }}</strong>
           </article>
         </div>
-        <p class="impact-note">（注：按停电影响户数规模统计停电次数）</p>
+        <p class="impact-note">
+          （注：按停电影响户数规模统计停电次数）
+          <span v-if="impactLoading">加载中...</span>
+          <span v-else-if="impactLoadError" class="impact-error">加载失败</span>
+        </p>
       </section>
     </div>
   </section>
+
+  <Teleport to="body">
+    <div
+      v-if="historyDialogOpen"
+      class="history-dialog-backdrop"
+      @click.self="closeHistoryDialog"
+      @keydown.esc="closeHistoryDialog"
+    >
+      <section
+        class="history-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="history-dialog-title"
+      >
+        <header class="history-dialog-header">
+          <h3 id="history-dialog-title">选择历史时间范围</h3>
+          <button type="button" aria-label="关闭" @click="closeHistoryDialog">×</button>
+        </header>
+        <div class="history-dialog-body">
+          <p class="history-dialog-hint">仅可查询距离本日最近一个月内的任意时间段</p>
+          <div class="history-time-range">
+            <label>
+              <span>开始时间</span>
+              <input
+                v-model="historyBeginInput"
+                type="datetime-local"
+                step="1"
+                :min="historyMinTime"
+                :max="historyEndInput || historyMaxTime"
+              />
+            </label>
+            <i aria-hidden="true">至</i>
+            <label>
+              <span>结束时间</span>
+              <input
+                v-model="historyEndInput"
+                type="datetime-local"
+                step="1"
+                :min="historyBeginInput || historyMinTime"
+                :max="historyMaxTime"
+              />
+            </label>
+          </div>
+          <p v-if="historyValidationError" class="history-dialog-error" role="alert">
+            {{ historyValidationError }}
+          </p>
+        </div>
+        <footer class="history-dialog-footer">
+          <button type="button" class="history-reset-button" @click="resetHistoryRange">重置</button>
+          <button type="button" @click="closeHistoryDialog">取消</button>
+          <button type="button" class="history-confirm-button" @click="confirmHistoryRange">确定</button>
+        </footer>
+      </section>
+    </div>
+  </Teleport>
+
+  <Teleport to="body">
+    <div
+      v-if="warningRuleDialogOpen"
+      class="history-dialog-backdrop"
+      @click.self="warningRuleDialogOpen = false"
+      @keydown.esc="warningRuleDialogOpen = false"
+    >
+      <section
+        class="history-dialog warning-rule-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="warning-rule-dialog-title"
+      >
+        <header class="history-dialog-header">
+          <h3 id="warning-rule-dialog-title">频繁停电用户预警规则</h3>
+          <button type="button" aria-label="关闭" @click="warningRuleDialogOpen = false">×</button>
+        </header>
+        <div class="warning-rule-dialog-body">
+          <p>以同一自然日内单个用户的停电次数判定风险，停电0次或1次不纳入预警。</p>
+          <div class="warning-rule-grid">
+            <article
+              v-for="rule in warningRules"
+              :key="rule.key"
+              :style="{ '--warning-color': rule.color }"
+            >
+              <i></i>
+              <strong>{{ rule.label }}</strong>
+              <span>{{ rule.threshold }}</span>
+            </article>
+          </div>
+          <ul>
+            <li><b>本日：</b>统计今日00:00:00至当前时刻内各风险等级的用户数。</li>
+            <li><b>七日：</b>逐日判定风险等级，再累计最近七日各等级的用户数。</li>
+            <li><b>历史：</b>在最近一个月内选择任意时段，按日判定后累计；首尾日期按实际选择的时刻统计。</li>
+          </ul>
+        </div>
+        <footer class="history-dialog-footer">
+          <button
+            type="button"
+            class="history-confirm-button"
+            @click="warningRuleDialogOpen = false"
+          >
+            知道了
+          </button>
+        </footer>
+      </section>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -571,6 +921,21 @@ const selectRange = (range) => {
   justify-content: space-between;
 }
 
+.warning-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.warning-heading-actions > span {
+  color: #718083;
+  font-size: 10px;
+}
+
+.warning-heading-actions > .warning-load-error {
+  color: #c74343;
+}
+
 .warning-rule-button {
   height: 25px;
   padding: 0 11px;
@@ -579,6 +944,7 @@ const selectRange = (range) => {
   color: #fff;
   background: #14ad82;
   font-size: 11px;
+  cursor: pointer;
 }
 
 .warning-list {
@@ -734,6 +1100,233 @@ const selectRange = (range) => {
   padding: 7px 10px 0;
   color: #344548;
   font-size: 10px;
+}
+
+.impact-note span {
+  margin-left: 4px;
+}
+
+.impact-error {
+  color: #c74343;
+}
+
+.history-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(4, 23, 31, 0.48);
+}
+
+.history-dialog {
+  width: min(620px, calc(100vw - 32px));
+  overflow: hidden;
+  border-radius: 8px;
+  color: #425256;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(0, 25, 35, 0.35);
+}
+
+.history-dialog-header {
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 15px;
+  color: #fff;
+  background: linear-gradient(90deg, #20bda2, #dff5f0);
+}
+
+.history-dialog-header h3 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.history-dialog-header button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  color: #7a898c;
+  background: transparent;
+  font-size: 25px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.history-dialog-body {
+  padding: 24px 20px 18px;
+}
+
+.history-dialog-hint {
+  margin-bottom: 14px;
+  color: #778689;
+  font-size: 13px;
+}
+
+.history-time-range {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  gap: 12px;
+}
+
+.history-time-range label {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.history-time-range label span {
+  color: #59686b;
+  font-size: 13px;
+}
+
+.history-time-range input {
+  width: 100%;
+  height: 40px;
+  box-sizing: border-box;
+  border: 1px solid #b9d4d2;
+  border-radius: 4px;
+  padding: 0 9px;
+  color: #455457;
+  background: #fff;
+  font: inherit;
+  outline: none;
+}
+
+.history-time-range input:focus {
+  border-color: #16b99c;
+  box-shadow: 0 0 0 2px rgba(22, 185, 156, 0.12);
+}
+
+.history-time-range > i {
+  padding-bottom: 11px;
+  color: #526164;
+  font-size: 13px;
+  font-style: normal;
+}
+
+.history-dialog-error {
+  margin-top: 10px;
+  color: #d74c4c;
+  font-size: 12px;
+}
+
+.history-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 12px 20px;
+  border-top: 1px solid #e3eceb;
+}
+
+.history-dialog-footer button {
+  min-width: 62px;
+  height: 32px;
+  border: 1px solid #c6d5d3;
+  border-radius: 4px;
+  color: #536164;
+  background: #fff;
+  cursor: pointer;
+}
+
+.history-dialog-footer .history-reset-button {
+  margin-right: auto;
+  border-color: transparent;
+  color: #17ad96;
+}
+
+.history-dialog-footer .history-confirm-button {
+  border-color: #18b99d;
+  color: #fff;
+  background: #18b99d;
+}
+
+.warning-rule-dialog {
+  width: min(680px, calc(100vw - 32px));
+}
+
+.warning-rule-dialog-body {
+  padding: 22px 20px 18px;
+}
+
+.warning-rule-dialog-body > p {
+  margin-bottom: 16px;
+  color: #68777a;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.warning-rule-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.warning-rule-grid article {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  padding: 13px 4px 11px;
+  border: 1px solid color-mix(in srgb, var(--warning-color) 38%, white);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--warning-color) 7%, white);
+}
+
+.warning-rule-grid article i {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--warning-color);
+}
+
+.warning-rule-grid article strong {
+  color: var(--warning-color);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.warning-rule-grid article span {
+  color: #526164;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.warning-rule-dialog-body ul {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0 0;
+  padding-left: 20px;
+  color: #5d6c6f;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.warning-rule-dialog-body li::marker {
+  color: #18b99d;
+}
+
+.warning-rule-dialog-body b {
+  color: #354649;
+}
+
+@media (max-width: 620px) {
+  .history-time-range {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .history-time-range > i {
+    padding: 0;
+    text-align: center;
+  }
+
+  .warning-rule-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-height: 820px) {

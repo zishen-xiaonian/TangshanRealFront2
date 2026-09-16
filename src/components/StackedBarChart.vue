@@ -110,6 +110,18 @@ const bars = computed(() => {
 })
 
 const xLabelFontSize = computed(() => (props.labels.length > 12 ? 9 : 10))
+const xLabelStep = computed(() => {
+  if (props.labels.length > 24) {
+    return 3
+  }
+  if (props.labels.length > 14) {
+    return 2
+  }
+  return 1
+})
+
+const shouldShowXLabel = (index) =>
+  index % xLabelStep.value === 0 || index === props.labels.length - 1
 </script>
 
 <template>
@@ -153,7 +165,7 @@ const xLabelFontSize = computed(() => (props.labels.length > 12 ? 9 : 10))
         :y2="plotTop + plotHeight"
       />
 
-      <g v-for="bar in bars" :key="bar.label" class="stacked-chart-column">
+      <g v-for="(bar, barIndex) in bars" :key="bar.label" class="stacked-chart-column">
         <rect
           v-for="segment in bar.segments"
           :key="`${bar.label}-${segment.key}`"
@@ -166,6 +178,7 @@ const xLabelFontSize = computed(() => (props.labels.length > 12 ? 9 : 10))
           <title>{{ bar.label }} · {{ segment.name }}：{{ segment.value }}</title>
         </rect>
         <text
+          v-if="shouldShowXLabel(barIndex)"
           class="stacked-chart-x-label"
           :x="bar.centerX"
           :y="chartHeight - 10"

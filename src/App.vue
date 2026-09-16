@@ -2,6 +2,7 @@
 import './style.css'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
+  queryOutageAnalysisRegions,
   queryOutageUserCounties,
   queryOutageUserCountyUserCount,
   queryOutageUserFaultLocation,
@@ -59,9 +60,13 @@ const tangshanCenter = [118.180194, 39.630867]
 
 const countyCenterMap = {
   路南区: [118.169, 39.619],
+  路南: [118.169, 39.619],
   路北区: [118.202, 39.652],
+  路北: [118.202, 39.652],
   古冶区: [118.462, 39.721],
+  古冶: [118.462, 39.721],
   开平区: [118.264, 39.671],
+  开平: [118.264, 39.671],
   丰南区: [118.101, 39.558],
   丰润区: [118.13, 39.824],
   曹妃甸区: [118.451, 39.271],
@@ -200,6 +205,25 @@ const spaceDistributionDetailLoadingCount = ref(0)
 const spaceDistributionDetailLoading = computed(() => spaceDistributionDetailLoadingCount.value > 0)
 
 const selectedRegion = ref('全部')
+const outageAnalysisCity = ref(null)
+const outageAnalysisCounties = ref([])
+const outageAnalysisSelectedRegionId = ref('')
+const outageAnalysisRegionsLoading = ref(false)
+const outageAnalysisRegionsError = ref('')
+const outageAnalysisSelectedCounty = computed(() =>
+  outageAnalysisCounties.value.find(
+    (item) => item.countyId === outageAnalysisSelectedRegionId.value,
+  ) || null,
+)
+const outageAnalysisSelectedCountyId = computed(
+  () => outageAnalysisSelectedCounty.value?.countyId || '',
+)
+const outageAnalysisSelectedCityId = computed(() =>
+  outageAnalysisSelectedCounty.value ? '' : String(outageAnalysisCity.value?.cityId || ''),
+)
+const outageAnalysisSelectedRegionName = computed(
+  () => outageAnalysisSelectedCounty.value?.countyName || '全部',
+)
 const selectedEventId = ref('')
 const activeMapEvent = ref(null)
 const showOutageRangeAssessmentPage = ref(false)
@@ -434,7 +458,8 @@ const toBooleanFlag = (value) => {
 const countyUserListLevels = new Set(['all', 'key', 'sensitive', 'key_sensitive'])
 const countyUserListOutageCounts = new Set(['1', '2', '3+'])
 
-const normalizeCountyName = (countyName = '') => String(countyName || '').replace('供电公司', '').trim()
+const normalizeCountyName = (countyName = '') =>
+  String(countyName || '').replace(/供电(?:公司|中心)$/, '').trim()
 const toCountyDisplayName = (countyName = '') => String(countyName || '').trim()
 
 const mapCountyList = (response) => {
@@ -472,6 +497,47 @@ const loadCountyList = async () => {
     console.error(error)
     countyList.value = []
     return []
+  }
+}
+
+const loadOutageAnalysisRegions = async () => {
+  outageAnalysisRegionsLoading.value = true
+  outageAnalysisRegionsError.value = ''
+  try {
+    const response = await queryOutageAnalysisRegions()
+    const data = response?.data
+    const city = data?.city
+    const counties = Array.isArray(data?.counties) ? data.counties : []
+    if (!city?.cityId || counties.length === 0) {
+      throw new Error('量测区域接口返回数据不完整')
+    }
+
+    outageAnalysisCity.value = {
+      cityId: String(city.cityId),
+      cityName: String(city.cityName || '国网唐山供电公司'),
+    }
+    outageAnalysisCounties.value = counties
+      .filter((item) => item?.countyId && item?.countyName)
+      .map((item) => ({
+        countyId: String(item.countyId),
+        countyName: String(item.countyName),
+      }))
+
+    const validIds = new Set([
+      outageAnalysisCity.value.cityId,
+      ...outageAnalysisCounties.value.map((item) => item.countyId),
+    ])
+    if (!validIds.has(outageAnalysisSelectedRegionId.value)) {
+      outageAnalysisSelectedRegionId.value = outageAnalysisCity.value.cityId
+    }
+  } catch (error) {
+    console.error(error)
+    outageAnalysisCity.value = null
+    outageAnalysisCounties.value = []
+    outageAnalysisSelectedRegionId.value = ''
+    outageAnalysisRegionsError.value = error?.message || '量测区域加载失败'
+  } finally {
+    outageAnalysisRegionsLoading.value = false
   }
 }
 
@@ -597,7 +663,10 @@ const syncKeyUserCountyMarkersToMapFrame = () => {
 }
 
 const syncCountyFocusToMapFrame = () => {
-  if (selectedRegion.value === '全部') {
+  const regionName = isOutageAnalysisPage.value
+    ? outageAnalysisSelectedRegionName.value
+    : selectedRegion.value
+  if (regionName === '全部') {
     postMessageToMapFrame({
       type: mapCountyFocusMessageType,
       payload: null,
@@ -608,8 +677,8 @@ const syncCountyFocusToMapFrame = () => {
   postMessageToMapFrame({
     type: mapCountyFocusMessageType,
     payload: {
-      countyName: selectedRegion.value,
-      lngLat: getCountyCenter(selectedRegion.value),
+      countyName: regionName,
+      lngLat: getCountyCenter(regionName),
     },
   })
 }
@@ -7332,6 +7401,13 @@ const switchPageTab = (tab) => {
     void applyTimeFilter()
   } else if (activePageTab.value === 'outageUsers') {
     void loadDashboardData(null, { includeDetailPages: false })
+  } else if (activePageTab.value === 'outageAnalysis') {
+    if (!outageAnalysisCity.value && !outageAnalysisRegionsLoading.value) {
+      void loadOutageAnalysisRegions()
+    }
+    nextTick(() => {
+      syncCountyFocusToMapFrame()
+    })
   }
 }
 
@@ -7689,7 +7765,7 @@ onMounted(async () => {
     void loadTopbarWeather()
   }, 30 * 60 * 1000)
   window.addEventListener('message', handleMapFrameMessage)
-  await loadCountyList()
+  await Promise.all([loadCountyList(), loadOutageAnalysisRegions()])
   await loadDashboardData()
 
   if (!mapRef.value) {
@@ -7861,7 +7937,11 @@ onBeforeUnmount(() => {
         </button>
 
         <div v-show="!isLeftCollapsed" class="panel-inner">
-          <OutageUserOverviewPanel v-if="isOutageAnalysisPage" />
+          <OutageUserOverviewPanel
+            v-if="isOutageAnalysisPage"
+            :city-id="outageAnalysisSelectedCityId"
+            :county-id="outageAnalysisSelectedCountyId"
+          />
 
           <section v-else class="card module-card">
             <template v-if="isOutageUsersPage">
@@ -8325,7 +8405,9 @@ onBeforeUnmount(() => {
         <div v-show="!isRightCollapsed" class="panel-inner">
           <OutageUserAnalysisPanel
             v-if="isOutageAnalysisPage"
-            :selected-region="selectedRegion"
+            :selected-region="outageAnalysisSelectedRegionName"
+            :city-id="outageAnalysisSelectedCityId"
+            :county-id="outageAnalysisSelectedCountyId"
             :end-date="queryEndTime"
           />
 
@@ -8485,10 +8567,21 @@ onBeforeUnmount(() => {
           </div>
 
           <label class="outage-analysis-region-field">
-            <select v-model="selectedRegion" aria-label="区县">
-              <option v-for="item in regionOptions" :key="`outage-analysis-region-${item}`" :value="item">
-                {{ item }}
+            <select
+              v-model="outageAnalysisSelectedRegionId"
+              aria-label="区县"
+              :disabled="outageAnalysisRegionsLoading || !outageAnalysisCity"
+              @change="syncCountyFocusToMapFrame"
+            >
+              <option v-if="outageAnalysisCity" :value="outageAnalysisCity.cityId">全部</option>
+              <option
+                v-for="item in outageAnalysisCounties"
+                :key="`outage-analysis-region-${item.countyId}`"
+                :value="item.countyId"
+              >
+                {{ item.countyName }}
               </option>
+              <option v-if="outageAnalysisRegionsError" value="" disabled>区域加载失败</option>
             </select>
           </label>
 

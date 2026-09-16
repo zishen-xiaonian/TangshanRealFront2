@@ -1,4 +1,4 @@
-﻿import { postJson } from './http'
+﻿import { getJson, postJson } from './http'
 
 const DEFAULT_STATS_TIMEOUT = 60000
 
@@ -49,6 +49,17 @@ const OUTAGE_USER_TAGS_API =
   import.meta.env.VITE_OUTAGE_USER_TAGS_API || '/api/v1/outage-users/user-tags'
 const OUTAGE_USER_ANALYSIS_API =
   import.meta.env.VITE_OUTAGE_USER_ANALYSIS_API || '/api/v1/outage-users/analysis-overview'
+const OUTAGE_ANALYSIS_REGIONS_API =
+  import.meta.env.VITE_OUTAGE_ANALYSIS_REGIONS_API || '/api/v1/outage-analysis/regions'
+const OUTAGE_ANALYSIS_IMPACT_COUNTS_API =
+  import.meta.env.VITE_OUTAGE_ANALYSIS_IMPACT_COUNTS_API ||
+  '/api/v1/outage-analysis/impact-scale-counts'
+const OUTAGE_ANALYSIS_IMPACT_DAILY_TREND_API =
+  import.meta.env.VITE_OUTAGE_ANALYSIS_IMPACT_DAILY_TREND_API ||
+  '/api/v1/outage-analysis/impact-daily-trend'
+const OUTAGE_ANALYSIS_WARNING_COUNTS_API =
+  import.meta.env.VITE_OUTAGE_ANALYSIS_WARNING_COUNTS_API ||
+  '/api/v1/outage-analysis/frequent-outage-warning-counts'
 const ONE_MAP_METER_BOX_ID_API =
   import.meta.env.VITE_ONE_MAP_METER_BOX_ID_API || '/api/v1/one-map/meter-box-id'
 
@@ -152,6 +163,26 @@ export const queryOutageUserTags = (params) =>
 
 export const queryOutageUserAnalysisOverview = (params) =>
   postJson(OUTAGE_USER_ANALYSIS_API, params, {
+    timeout: DEFAULT_STATS_TIMEOUT,
+  })
+
+export const queryOutageAnalysisRegions = () =>
+  getJson(OUTAGE_ANALYSIS_REGIONS_API, {}, {
+    timeout: DEFAULT_STATS_TIMEOUT,
+  })
+
+export const queryOutageAnalysisImpactCounts = (params) =>
+  postJson(OUTAGE_ANALYSIS_IMPACT_COUNTS_API, params, {
+    timeout: DEFAULT_STATS_TIMEOUT,
+  })
+
+export const queryOutageAnalysisImpactDailyTrend = (params) =>
+  postJson(OUTAGE_ANALYSIS_IMPACT_DAILY_TREND_API, params, {
+    timeout: DEFAULT_STATS_TIMEOUT,
+  })
+
+export const queryOutageAnalysisWarningCounts = (params) =>
+  postJson(OUTAGE_ANALYSIS_WARNING_COUNTS_API, params, {
     timeout: DEFAULT_STATS_TIMEOUT,
   })
 
